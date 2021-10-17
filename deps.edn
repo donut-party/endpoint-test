@@ -1,0 +1,12 @@
+{:paths ["src"]
+ :deps  {bk/ring-gzip           {:mvn/version "0.3.0"}
+         club.donutpower/system {:mvn/version "0.0.91"}
+         org.clojure/clojure    {:mvn/version "1.10.3"}
+         metosin/muuntaja       {:mvn/version "0.6.8"}
+         metosin/reitit-core    {:mvn/version "0.5.15"}
+         ring/ring-mock         {:mvn/version "0.4.0"}}
+
+ :aliases
+ {:build {:deps       {io.github.seancorfield/build-clj
+                       {:git/tag "v0.1.2" :git/sha "0719a09"}}
+          :ns-default build}}}
