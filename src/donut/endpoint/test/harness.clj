@@ -17,6 +17,10 @@
   {:router  [:http :router]
    :handler [:http :handler]})
 
+(def muuntaja (-> m/default-options
+                  (assoc-in ["formats" "application/json" :decoder-opts] {:keywords? true})
+                  m/create))
+
 ;; -------------------------
 ;; system wrapper helpers
 ;; -------------------------
@@ -98,22 +102,18 @@
   (-> (mock/request method url)
       (headers {:content-type "application/transit+json"
                 :accept       "application/transit+json"})
-      (assoc :body (m/encode "application/transit+json" params))))
+      (assoc :body (m/encode muuntaja "application/transit+json" params))))
 
 (defmethod base-request* :json
   [method url params _]
   (-> (mock/request method url)
       (headers {:content-type "application/json"
                 :accept       "application/json"})
-      (assoc :body (m/encode "application/json" params))))
+      (assoc :body (m/encode muuntaja "application/json" params))))
 
 (defmethod base-request* :html
   [method url params _]
   (mock/request method url params))
-
-(defmethod base-request* :default
-  [method url params _]
-  (base-request* method url params :transit-json))
 
 (defn urlize
   [url & [params]]
@@ -125,11 +125,11 @@
 
 (defn base-request
   ([method url]
-   (base-request** method url {} nil))
+   (base-request** method url {} :transit-json))
   ([method url params-or-content-type]
    (if (keyword? params-or-content-type)
      (base-request** method url {} params-or-content-type)
-     (base-request** method url params-or-content-type nil)))
+     (base-request** method url params-or-content-type :transit-json)))
   ([method url params content-type]
    (base-request** method url params content-type)))
 
@@ -151,13 +151,13 @@
 
 (defmethod read-body "application/transit+json"
   [{:keys [body]}]
-  (m/decode "application/transit+json" body))
+  (m/decode muuntaja "application/transit+json" body))
 
 (defmethod read-body "application/json"
   [{:keys [body]}]
   (if (string? body)
     (j/read-value body j/keyword-keys-object-mapper)
-    (m/decode "application/transit+json" body)))
+    (m/decode muuntaja "application/transit+json" body)))
 
 (defmethod read-body :default
   [{:keys [body]}]

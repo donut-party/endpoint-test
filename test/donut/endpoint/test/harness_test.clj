@@ -48,6 +48,37 @@
 
     (is (= "x=y" (deth/read-body req)))))
 
+(deftest base-request-json
+  (let [req (deth/base-request :get "/" :json)]
+    (is (= {:remote-addr    "127.0.0.1"
+            :protocol       "HTTP/1.1"
+            :headers        {"host"         "localhost"
+                             "content-type" "application/json"
+                             "accept"       "application/json"}
+            :server-port    80
+            :uri            "/"
+            :server-name    "localhost"
+            :scheme         :http
+            :request-method :get}
+           (dissoc req :body)))
+    (is (= {}
+           (deth/read-body req))))
+
+  (let [req (deth/base-request :post "/" {:x :y} :json)]
+    (is (= {:remote-addr    "127.0.0.1"
+            :protocol       "HTTP/1.1"
+            :headers        {"host"         "localhost"
+                             "content-type" "application/json"
+                             "accept"       "application/json"}
+            :server-port    80
+            :uri            "/"
+            :server-name    "localhost"
+            :scheme         :http
+            :request-method :post}
+           (dissoc req :body)))
+    (is (= {:x "y"}
+           (deth/read-body req)))))
+
 (deftest base-request-transit
   (let [req (deth/base-request :get "/" :transit-json)]
     (is (= {:remote-addr    "127.0.0.1"
@@ -60,7 +91,9 @@
             :server-name    "localhost"
             :scheme         :http
             :request-method :get}
-           (dissoc req :body)))
+           (dissoc req :body)
+           ;; defaults to :transit-json
+           (dissoc (deth/base-request :get "/") :body)))
     (is (= {}
            (deth/read-body req))))
 
@@ -78,3 +111,7 @@
            (dissoc req :body)))
     (is (= {:x :y}
            (deth/read-body req)))))
+
+(deftest base-request-throws-on-unknown-type
+  (is (thrown? java.lang.IllegalArgumentException
+               (deth/base-request :get "/" :unsupported))))
