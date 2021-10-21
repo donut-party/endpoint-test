@@ -17,10 +17,6 @@
   {:router  [:http :router]
    :handler [:http :handler]})
 
-(def muuntaja (-> m/default-options
-                  (assoc-in ["formats" "application/json" :decoder-opts] {:keywords? true})
-                  m/create))
-
 ;; -------------------------
 ;; system wrapper helpers
 ;; -------------------------
@@ -59,10 +55,10 @@
 (defn router
   "The endpoint router."
   []
-  (let [{:keys [router]} component-layout]
-    (or (get-in (system) router)
+  (let [router-path (:router component-layout)]
+    (or (get-in (system) (into [::ds/instances] router-path))
         (throw (ex-info (str "No router for *system* at "
-                             router
+                             router-path
                              ". Add a router or call alter-var-root on component-layout to specify router component-id")
                         {})))))
 
@@ -80,10 +76,10 @@
 
 (defn handler
   []
-  (let [{:keys [handler]} component-layout]
-    (or (get-in (system) handler)
+  (let [handler-path (:handler component-layout)]
+    (or (get-in (system) (into [::ds/instances] handler-path))
         (throw (ex-info (str "No handler for *system* at "
-                             router
+                             handler-path
                              ". Add a handler or call alter-var-root on component-layout to specify handler component-id")
                         {})))))
 
@@ -135,8 +131,8 @@
 
 (defn req
   "Perform a request with the system's root handler"
-  [& args]
-  ((handler) (apply base-request args)))
+  [method url & args]
+  ((handler) (apply base-request method url args)))
 
 ;; -------------------------
 ;; read responses
@@ -151,13 +147,11 @@
 
 (defmethod read-body "application/transit+json"
   [{:keys [body]}]
-  (m/decode muuntaja "application/transit+json" body))
+  (m/decode "application/transit+json" body))
 
 (defmethod read-body "application/json"
   [{:keys [body]}]
-  (if (string? body)
-    (j/read-value body j/keyword-keys-object-mapper)
-    (m/decode muuntaja "application/transit+json" body)))
+  (m/decode "application/json" body))
 
 (defmethod read-body :default
   [{:keys [body]}]

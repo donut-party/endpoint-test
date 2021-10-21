@@ -1,7 +1,8 @@
 (ns donut.endpoint.test.harness-test
   (:require [clojure.test :refer [deftest is testing]]
             [donut.endpoint.test.harness :as deth]
-            [donut.system :as ds]))
+            [donut.system :as ds]
+            [reitit.core :as rc]))
 
 (defmethod ds/config ::test
   [_]
@@ -115,3 +116,24 @@
 (deftest base-request-throws-on-unknown-type
   (is (thrown? java.lang.IllegalArgumentException
                (deth/base-request :get "/" :unsupported))))
+
+(defmethod ds/config ::req-test
+  [_]
+  {::ds/defs
+   {:http {:handler identity
+           :router  (rc/router [["/api/test" ::test]])}}})
+
+(deftest req-test
+  (deth/with-system [::req-test]
+    (is (= {:protocol       "HTTP/1.1"
+            :remote-addr    "127.0.0.1"
+            :headers        {"host"         "localhost"
+                             "content-type" "application/transit+json"
+                             "accept"       "application/transit+json"}
+            :server-port    80
+            :uri            "/api/test"
+            :server-name    "localhost"
+            :scheme         :http
+            :request-method :get}
+           (-> (deth/req :get ::test)
+               (dissoc :body))))))
