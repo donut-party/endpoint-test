@@ -6,16 +6,17 @@
   * `read-body` multimethod for parsing response bodies of different types (transit, json etc)
   * assertions that work with response segments"
   (:require [donut.system :as ds]
+            [meta-merge.core :as mm]
             [muuntaja.core :as m]
             [reitit.core :as rc]
             [ring.mock.request :as mock]))
 
 (def ^:dynamic *system* nil)
 
-(def ConfigurationComponent
-  {:start {:component-ids                {:router  [:http :router]
-                                          :handler [:http :handler]}
-           :default-request-content-type :transit-json}})
+(def ConfigurationComponentGroup
+  {:component-ids                (ds/const {:router  [:http :router]
+                                            :handler [:http :handler]})
+   :default-request-content-type :transit-json})
 
 ;; -------------------------
 ;; system wrapper helpers
@@ -32,8 +33,8 @@
   "Bind dynamic system var to a test system."
   [[config-name custom-config] & body]
   `(let [conf# (-> (ds/config ~config-name)
-                   (update-in [::ds/defs ::config ::config]
-                              #(or % ConfigurationComponent)))]
+                   (update-in [::ds/defs ::config]
+                              #(mm/meta-merge ConfigurationComponentGroup %)))]
      (binding [*system* (ds/start conf# ~custom-config)]
        (let [return# (do ~@body)]
          (ds/stop *system*)
@@ -53,9 +54,10 @@
                       {:component-id component-id}))))
 
 (defn configured-instance
-  "Look up a component instance that has path configured by the [::config ::config] component"
+  "Look up a component instance that has path configured by the `::config`
+  component group"
   [human-name component-config-id]
-  (let [component-id (instance [::config ::config :component-ids component-config-id]
+  (let [component-id (instance [::config :component-ids component-config-id]
                                (str "There is no configured component id for "
                                     component-config-id ". See TODO on configuring the donut test harness."))]
     (instance component-id
@@ -66,9 +68,10 @@
                       human-name))))
 
 (defn configured-value
-  "Look up a component instance that has path configured by the [::config ::config] component"
+  "Look up a component instance that has path configured by the `::config`
+  component group"
   [config-key]
-  (instance [::config ::config config-key]
+  (instance [::config config-key]
             (str "There is no config value for " config-key)))
 
 ;; ---
