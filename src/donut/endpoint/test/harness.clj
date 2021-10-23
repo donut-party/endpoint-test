@@ -12,9 +12,10 @@
 
 (def ^:dynamic *system* nil)
 
-(def component-layout
-  {:router  [:http :router]
-   :handler [:http :handler]})
+(def ConfigurationComponent
+  {:start {:component-ids                {:router  [:http :router]
+                                          :handler [:http :handler]}
+           :default-request-content-type :transit-json}})
 
 ;; -------------------------
 ;; system wrapper helpers
@@ -30,22 +31,45 @@
 (defmacro with-system
   "Bind dynamic system var to a test system."
   [[config-name custom-config] & body]
-  `(binding [*system* (ds/start ~config-name ~custom-config)]
-     (let [return# (do ~@body)]
-       (ds/stop *system*)
-       return#)))
+  `(let [conf# (-> (ds/config ~config-name)
+                   (update-in [::ds/defs ::config ::config]
+                              #(or % ConfigurationComponent)))]
+     (binding [*system* (ds/start conf# ~custom-config)]
+       (let [return# (do ~@body)]
+         (ds/stop *system*)
+         return#))))
 
 (defn system-fixture
   "To be used with `use-fixtures`"
-  [config-name custom-config]
+  [config-name & [custom-config]]
   (fn [f]
     (with-system [config-name custom-config] (f))))
 
-(defn component
-  "Look up component in current test system"
-  [component-id]
+(defn instance
+  "Look up component instance in current test system"
+  [component-id & [err-msg]]
   (or (get-in (system) (into [::ds/instances] component-id))
-      (throw (ex-info "Could not find component" {:component-id component-id}))))
+      (throw (ex-info (or err-msg (str "Could not find component " component-id))
+                      {:component-id component-id}))))
+
+(defn configured-instance
+  "Look up a component instance that has path configured by the [::config ::config] component"
+  [human-name component-config-id]
+  (let [component-id (instance [::config ::config :component-ids component-config-id]
+                               (str "There is no configured component id for "
+                                    component-config-id ". See TODO on configuring the donut test harness."))]
+    (instance component-id
+              (format (str "No %s for *system* at %s. "
+                           "See TODO on configuring the donut test harness to find your %s.")
+                      human-name
+                      component-id
+                      human-name))))
+
+(defn configured-value
+  "Look up a component instance that has path configured by the [::config ::config] component"
+  [config-key]
+  (instance [::config ::config config-key]
+            (str "There is no config value for " config-key)))
 
 ;; ---
 ;; paths
@@ -54,17 +78,13 @@
 (defn router
   "The endpoint router."
   []
-  (let [router-path (:router component-layout)]
-    (or (get-in (system) (into [::ds/instances] router-path))
-        (throw (ex-info (str "No router for *system* at "
-                             router-path
-                             ". Add a router or call alter-var-root on component-layout to specify router component-id")
-                        {})))))
+  (configured-instance "router" :router))
 
 (defn path
   ([route-name]
    (path route-name {}))
   ([route-name route-params]
+   ;; TODO assert that router is a router
    (or (:path (rc/match-by-name (router) route-name route-params))
        (throw (ex-info "could not generate router path" {:route-name   route-name
                                                          :route-params route-params})))))
@@ -74,13 +94,9 @@
 ;; -------------------------
 
 (defn handler
+  "The endpoint handler."
   []
-  (let [handler-path (:handler component-layout)]
-    (or (get-in (system) (into [::ds/instances] handler-path))
-        (throw (ex-info (str "No handler for *system* at "
-                             handler-path
-                             ". Add a handler or call alter-var-root on component-layout to specify handler component-id")
-                        {})))))
+  (configured-instance "handler" :handler))
 
 (defn headers
   "Add all headers to request"
@@ -111,27 +127,38 @@
   (mock/request method url params))
 
 (defn urlize
-  [url & [params]]
-  (if (keyword? url) (path url params) url))
+  [path-or-route-name & [params]]
+  (if (keyword? path-or-route-name)
+    (path path-or-route-name params)
+    path-or-route-name))
 
 (defn base-request**
-  [method url params content-type]
-  (base-request* method (urlize url params) params content-type))
+  [method path-or-route-name params content-type]
+  (base-request* method (urlize path-or-route-name params) params content-type))
 
 (defn base-request
-  ([method url]
-   (base-request** method url {} :transit-json))
-  ([method url params-or-content-type]
+  ([method path-or-route-name]
+   (base-request** method
+                   path-or-route-name
+                   {}
+                   (configured-value :default-request-content-type)))
+  ([method path-or-route-name params-or-content-type]
    (if (keyword? params-or-content-type)
-     (base-request** method url {} params-or-content-type)
-     (base-request** method url params-or-content-type :transit-json)))
-  ([method url params content-type]
-   (base-request** method url params content-type)))
+     (base-request** method
+                     path-or-route-name
+                     {}
+                     params-or-content-type)
+     (base-request** method
+                     path-or-route-name
+                     params-or-content-type
+                     (configured-value :default-request-content-type))))
+  ([method path-or-route-name params content-type]
+   (base-request** method path-or-route-name params content-type)))
 
 (defn req
   "Perform a request with the system's root handler"
-  [method url & args]
-  ((handler) (apply base-request method url args)))
+  [method path-or-route-name & args]
+  ((handler) (apply base-request method path-or-route-name args)))
 
 ;; -------------------------
 ;; read responses
