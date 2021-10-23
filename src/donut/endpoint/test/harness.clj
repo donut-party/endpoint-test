@@ -6,7 +6,6 @@
   * `read-body` multimethod for parsing response bodies of different types (transit, json etc)
   * assertions that work with response segments"
   (:require [donut.system :as ds]
-            [jsonista.core :as j]
             [muuntaja.core :as m]
             [reitit.core :as rc]
             [ring.mock.request :as mock]))
@@ -98,14 +97,14 @@
   (-> (mock/request method url)
       (headers {:content-type "application/transit+json"
                 :accept       "application/transit+json"})
-      (assoc :body (m/encode muuntaja "application/transit+json" params))))
+      (assoc :body (m/encode "application/transit+json" params))))
 
 (defmethod base-request* :json
   [method url params _]
   (-> (mock/request method url)
       (headers {:content-type "application/json"
                 :accept       "application/json"})
-      (assoc :body (m/encode muuntaja "application/json" params))))
+      (assoc :body (m/encode "application/json" params))))
 
 (defmethod base-request* :html
   [method url params _]
