@@ -140,7 +140,7 @@
   [method path-or-route-name params content-type]
   (base-request* method (urlize path-or-route-name params) params content-type))
 
-(defn base-request
+(defn request
   ([method path-or-route-name]
    (base-request** method
                    path-or-route-name
@@ -159,10 +159,10 @@
   ([method path-or-route-name params content-type]
    (base-request** method path-or-route-name params content-type)))
 
-(defn req
+(defn handle-request
   "Perform a request with the system's root handler"
   [method path-or-route-name & args]
-  ((handler) (apply base-request method path-or-route-name args)))
+  ((handler) (apply request method path-or-route-name args)))
 
 ;; -------------------------
 ;; read responses

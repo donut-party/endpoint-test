@@ -135,5 +135,5 @@
             :server-name    "localhost"
             :scheme         :http
             :request-method :get}
-           (-> (deth/req :get ::test)
+           (-> (deth/handle-request :get ::test)
                (dissoc :body))))))
