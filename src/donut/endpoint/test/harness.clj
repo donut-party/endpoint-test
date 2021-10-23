@@ -31,20 +31,21 @@
 
 (defmacro with-system
   "Bind dynamic system var to a test system."
-  [[config-name custom-config] & body]
-  `(let [conf# (-> (ds/config ~config-name)
+  [config & body]
+  `(let [[config-name# custom-config#] ~config
+         conf# (-> (ds/config config-name#)
                    (update-in [::ds/defs ::config]
                               #(mm/meta-merge ConfigurationComponentGroup %)))]
-     (binding [*system* (ds/start conf# ~custom-config)]
+     (binding [*system* (ds/start conf# custom-config#)]
        (let [return# (do ~@body)]
          (ds/stop *system*)
          return#))))
 
 (defn system-fixture
   "To be used with `use-fixtures`"
-  [config-name & [custom-config]]
+  [config]
   (fn [f]
-    (with-system [config-name custom-config] (f))))
+    (with-system config (f))))
 
 (defn instance
   "Look up component instance in current test system"
