@@ -84,14 +84,29 @@
   []
   (configured-instance "router" :router))
 
-(defn path
+(defn path*
   ([route-name]
-   (path route-name {}))
+   (path* route-name {}))
   ([route-name route-params]
    ;; TODO assert that router is a router
    (or (:path (rc/match-by-name (router) route-name route-params))
        (throw (ex-info "could not generate router path" {:route-name   route-name
                                                          :route-params route-params})))))
+
+(defprotocol Path
+  (path [this]))
+
+(extend-protocol Path
+  String
+  (path [this] this)
+
+  clojure.lang.PersistentVector
+  (path [[route-name route-params]]
+    (path* route-name route-params))
+
+  clojure.lang.Keyword
+  (path [this] (path* this)))
+
 
 ;; -------------------------
 ;; compose and dispatch requests
@@ -108,56 +123,55 @@
   (reduce-kv mock/header req headers))
 
 
-(defmulti base-request*
+(defmulti content-type-request*
   (fn [_method _url _params content-type]
     content-type))
 
-(defmethod base-request* :transit-json
+(defmethod content-type-request* :transit-json
   [method url params _]
   (-> (mock/request method url)
       (headers {:content-type "application/transit+json"
                 :accept       "application/transit+json"})
       (assoc :body (m/encode "application/transit+json" params))))
 
-(defmethod base-request* :json
+(defmethod content-type-request* :json
   [method url params _]
   (-> (mock/request method url)
       (headers {:content-type "application/json"
                 :accept       "application/json"})
       (assoc :body (m/encode "application/json" params))))
 
-(defmethod base-request* :html
+(defmethod content-type-request* :html
   [method url params _]
   (mock/request method url params))
 
-(defn urlize
-  [path-or-route-name & [params]]
-  (if (keyword? path-or-route-name)
-    (path path-or-route-name params)
-    path-or-route-name))
-
-(defn base-request**
-  [method path-or-route-name params content-type]
-  (base-request* method (urlize path-or-route-name params) params content-type))
+(defn content-type-request
+  ([method path-or-route-name content-type]
+   (content-type-request method path-or-route-name {} content-type))
+  ([method path-or-route-name params content-type]
+   (content-type-request* method
+                          (path path-or-route-name)
+                          params
+                          content-type)))
 
 (defn request
   ([method path-or-route-name]
-   (base-request** method
-                   path-or-route-name
-                   {}
-                   (configured-value :default-request-content-type)))
+   (content-type-request method
+                         path-or-route-name
+                         {}
+                         (configured-value :default-request-content-type)))
   ([method path-or-route-name params-or-content-type]
    (if (keyword? params-or-content-type)
-     (base-request** method
-                     path-or-route-name
-                     {}
-                     params-or-content-type)
-     (base-request** method
-                     path-or-route-name
-                     params-or-content-type
-                     (configured-value :default-request-content-type))))
+     (content-type-request method
+                           path-or-route-name
+                           {}
+                           params-or-content-type)
+     (content-type-request method
+                           path-or-route-name
+                           params-or-content-type
+                           (configured-value :default-request-content-type))))
   ([method path-or-route-name params content-type]
-   (base-request** method path-or-route-name params content-type)))
+   (content-type-request* method path-or-route-name params content-type)))
 
 (defn handle-request
   "Perform a request with the system's root handler"

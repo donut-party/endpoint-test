@@ -13,14 +13,18 @@
   (testing "no custom config"
     (is (= {:http {:thing "thing"}}
            (deth/with-system [::test]
-             (::ds/instances deth/*system*)))))
+             (-> deth/*system*
+                 ::ds/instances
+                 (dissoc ::deth/config))))))
 
   (testing "custom config"
     (is (= {:http {:thing "custom thing"}}
            (deth/with-system [::test {::ds/defs {:http {:thing "custom thing"}}}]
-             (::ds/instances deth/*system*))))))
+             (-> deth/*system*
+                 ::ds/instances
+                 (dissoc ::deth/config)))))))
 
-(deftest base-request-html
+(deftest content-type-request-html
   (is (= {:server-port    80
           :server-name    "localhost"
           :remote-addr    "127.0.0.1"
@@ -30,9 +34,9 @@
           :scheme         :http
           :request-method :get
           :headers        {"host" "localhost"}}
-         (deth/base-request :get "/" :html)))
+         (deth/content-type-request :get "/" :html)))
 
-  (let [req (deth/base-request :post "/" {:x "y"} :html)]
+  (let [req (deth/content-type-request :post "/" {:x "y"} :html)]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"           "localhost"
@@ -49,8 +53,8 @@
 
     (is (= "x=y" (deth/read-body req)))))
 
-(deftest base-request-json
-  (let [req (deth/base-request :get "/" :json)]
+(deftest content-type-request-json
+  (let [req (deth/content-type-request :get "/" :json)]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"
@@ -65,7 +69,7 @@
     (is (= {}
            (deth/read-body req))))
 
-  (let [req (deth/base-request :post "/" {:x :y} :json)]
+  (let [req (deth/content-type-request :post "/" {:x :y} :json)]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"
@@ -80,50 +84,24 @@
     (is (= {:x "y"}
            (deth/read-body req)))))
 
-(deftest base-request-transit
-  (let [req (deth/base-request :get "/" :transit-json)]
-    (is (= {:remote-addr    "127.0.0.1"
-            :protocol       "HTTP/1.1"
-            :headers        {"host"         "localhost"
-                             "content-type" "application/transit+json"
-                             "accept"       "application/transit+json"}
-            :server-port    80
-            :uri            "/"
-            :server-name    "localhost"
-            :scheme         :http
-            :request-method :get}
-           (dissoc req :body)
-           ;; defaults to :transit-json
-           (dissoc (deth/base-request :get "/") :body)))
-    (is (= {}
-           (deth/read-body req))))
-
-  (let [req (deth/base-request :post "/" {:x :y} :transit-json)]
-    (is (= {:remote-addr    "127.0.0.1"
-            :protocol       "HTTP/1.1"
-            :headers        {"host"         "localhost"
-                             "content-type" "application/transit+json"
-                             "accept"       "application/transit+json"}
-            :server-port    80
-            :uri            "/"
-            :server-name    "localhost"
-            :scheme         :http
-            :request-method :post}
-           (dissoc req :body)))
-    (is (= {:x :y}
-           (deth/read-body req)))))
-
-(deftest base-request-throws-on-unknown-type
+(deftest content-type-request-throws-on-unknown-type
   (is (thrown? java.lang.IllegalArgumentException
-               (deth/base-request :get "/" :unsupported))))
+               (deth/content-type-request :get "/" :unsupported))))
 
 (defmethod ds/config ::req-test
   [_]
   {::ds/defs
    {:http {:handler identity
-           :router  (rc/router [["/api/test" ::test]])}}})
+           :router  (rc/router [["/api/test" ::test]
+                                ["/api/test/:id" ::test-id]])}}})
 
-(deftest req-test
+(deftest path-test
+  (deth/with-system [::req-test]
+    (is (= "/foo"        (deth/path "/foo")))
+    (is (= "/api/test"   (deth/path ::test)))
+    (is (= "/api/test/1" (deth/path [::test-id {:id 1}])))))
+
+(deftest handle-request-test
   (deth/with-system [::req-test]
     (is (= {:protocol       "HTTP/1.1"
             :remote-addr    "127.0.0.1"

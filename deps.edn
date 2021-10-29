@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps  {bk/ring-gzip           {:mvn/version "0.3.0"}
-         club.donutpower/system {:mvn/version "0.0.91"}
+         club.donutpower/system {:mvn/version "0.0.94"}
          org.clojure/clojure    {:mvn/version "1.10.3"}
          meta-merge/meta-merge  {:mvn/version "1.0.0"}
          metosin/muuntaja       {:mvn/version "0.6.8"}
