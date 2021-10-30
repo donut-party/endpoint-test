@@ -9,7 +9,8 @@
             [meta-merge.core :as mm]
             [muuntaja.core :as m]
             [reitit.core :as rc]
-            [ring.mock.request :as mock]))
+            [ring.mock.request :as mock]
+            [ring.util.codec :as ring-codec]))
 
 (def ^:dynamic *system* nil)
 
@@ -84,14 +85,19 @@
   []
   (configured-instance "router" :router))
 
-(defn path*
+(defn route-path
   ([route-name]
-   (path* route-name {}))
+   (route-path route-name {} {}))
   ([route-name route-params]
+   (route-path route-name route-params {}))
+  ([route-name route-params query-params]
    ;; TODO assert that router is a router
-   (or (:path (rc/match-by-name (router) route-name route-params))
+   (let [{:keys [path]} (rc/match-by-name (router) route-name route-params)]
+     (if path
+       (cond-> path
+         (not-empty query-params) (str "?" (ring-codec/form-encode query-params)))
        (throw (ex-info "could not generate router path" {:route-name   route-name
-                                                         :route-params route-params})))))
+                                                         :route-params route-params}))))))
 
 (defprotocol Path
   (path [this]))
@@ -101,11 +107,11 @@
   (path [this] this)
 
   clojure.lang.PersistentVector
-  (path [[route-name route-params]]
-    (path* route-name route-params))
+  (path [[route-name route-params query-params]]
+    (route-path route-name route-params query-params))
 
   clojure.lang.Keyword
-  (path [this] (path* this)))
+  (path [this] (route-path this)))
 
 
 ;; -------------------------
