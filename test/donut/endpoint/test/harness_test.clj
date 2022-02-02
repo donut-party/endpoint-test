@@ -162,3 +162,33 @@
             :request-method :get}
            (-> (deth/handle-request :get ::test)
                (dissoc :body))))))
+
+;; -------------------------
+;; response data predicates
+;; -------------------------
+
+(deftest response-entities-one-test
+  (is (= [{:foo :bar}]
+         (deth/response-entities {:foo :bar}))))
+
+(deftest response-entities-many-test
+  (is (= [{:foo :bar} {:boop :moop}]
+         (deth/response-entities [{:foo :bar} {:boop :moop}]))))
+
+(deftest response-entities-segments-test
+  (is (= [{:a :a} {:b :b} {:c :c} {:d :d}]
+         (deth/response-entities [[:entities [:entity-type :id [{:a :a} {:b :b}]]]
+                                  [:segment nil]
+                                  [:entities [:entity-type :id [{:c :c} {:d :d}]]]]))))
+
+(deftest contains-entity?-test
+  (is (deth/contains-entity? {:a :a :b :b}
+                             {:a :a}))
+  (is (not (deth/contains-entity? {:a :a :b :b}
+                                  {:a :a :c :c})))
+  (is (deth/contains-entity? [{:a :a :b :b}]
+                             {:a :a}))
+  (is (deth/contains-entity? [[:entities [:_ :_ [{:a :a}]]]]
+                             {:a :a}))
+  (is (not (deth/contains-entity? [[:entities [:_ :_ [{:a :a}]]]]
+                                  {:a :a :b :b}))))

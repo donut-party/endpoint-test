@@ -5,12 +5,15 @@
   * Helpers for composing and dispatching requests
   * `read-body` multimethod for parsing response bodies of different types (transit, json etc)
   * assertions that work with response segments"
-  (:require [donut.system :as ds]
-            [meta-merge.core :as mm]
-            [muuntaja.core :as m]
-            [reitit.core :as rc]
-            [ring.mock.request :as mock]
-            [ring.util.codec :as ring-codec]))
+  (:require
+   [com.rpl.specter :as specter]
+   [donut.system :as ds]
+   [malli.core :as m]
+   [meta-merge.core :as mm]
+   [muuntaja.core :as mu]
+   [reitit.core :as rc]
+   [ring.mock.request :as mock]
+   [ring.util.codec :as ring-codec]))
 
 (def ^:dynamic *system* nil)
 
@@ -138,14 +141,14 @@
   (-> (mock/request method url)
       (headers {:content-type "application/transit+json"
                 :accept       "application/transit+json"})
-      (assoc :body (m/encode "application/transit+json" params))))
+      (assoc :body (mu/encode "application/transit+json" params))))
 
 (defmethod content-type-request* :json
   [method url params _]
   (-> (mock/request method url)
       (headers {:content-type "application/json"
                 :accept       "application/json"})
-      (assoc :body (m/encode "application/json" params))))
+      (assoc :body (mu/encode "application/json" params))))
 
 (defmethod content-type-request* :html
   [method url params _]
@@ -197,14 +200,71 @@
 
 (defmethod read-body "application/transit+json"
   [{:keys [body]}]
-  (m/decode "application/transit+json" body))
+  (mu/decode "application/transit+json" body))
 
 (defmethod read-body "application/json"
   [{:keys [body]}]
-  (m/decode "application/json" body))
+  (mu/decode "application/json" body))
 
 (defmethod read-body :default
   [{:keys [body]}]
   (if (string? body)
     body
     (slurp body)))
+
+;; -------------------------
+;; response data predicates
+;; -------------------------
+
+(def Entity map?)
+(def Entities [:vector Entity])
+(def Segment [:tuple keyword? any?])
+(def Segments [:vector Segment])
+(def Response
+  [:orn
+   [:entity Entity]
+   [:entities Entities]
+   [:segments Segments]])
+
+(defn response-entities
+  "Walk response data and return all entities from entity segments"
+  [resp-data]
+  (let [[response-data-type _] (m/parse Response resp-data)]
+    (case response-data-type
+      :entity   [resp-data]
+      :entities resp-data
+      :segments (specter/select [specter/ALL
+                                 #(= (first %) :entities)
+                                 1
+                                 2
+                                 specter/ALL]
+                                resp-data))))
+
+(defn prep-comparison
+  "When testing whether a response contains `test-ent-attrs`, we modify
+  a response entity by:
+
+  1. selecting only the keys that are present in
+     `test-ent-attrs`. This allows us to do an `=` comparison that won't
+     fail if the response entity contains attributes we don't want to
+     test.
+
+  2. Putting the result in a map to handle case where `resp-entity` is
+     a record."
+  [resp-entity test-ent-attrs]
+  (into {} (select-keys resp-entity (keys test-ent-attrs))))
+
+(defn comparison-entities
+  "Returns a set that can be used to test if `test-ent-attrs` is
+  contained in a response"
+  [test-ent-attrs resp-data]
+  (->> resp-data
+       (response-entities)
+       (map #(prep-comparison % test-ent-attrs))
+       (set)))
+
+(defn contains-entity?
+  "Request's response data creates entity of type `ent-type` that has
+  key/value pairs identical to `test-ent-attrs`."
+  [resp-data test-ent-attrs]
+  ((comparison-entities test-ent-attrs resp-data) test-ent-attrs))

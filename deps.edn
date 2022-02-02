@@ -3,6 +3,7 @@
          club.donutpower/system {:mvn/version "0.0.100"}
          org.clojure/clojure    {:mvn/version "1.10.3"}
          meta-merge/meta-merge  {:mvn/version "1.0.0"}
+         metosin/malli          {:mvn/version "0.8.0"}
          metosin/muuntaja       {:mvn/version "0.6.8"}
          metosin/reitit-core    {:mvn/version "0.5.15"}
          ring/ring-codec        {:mvn/version "1.2.0"}
