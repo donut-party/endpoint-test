@@ -18,7 +18,7 @@
 (def ^:dynamic *system* nil)
 
 (def ConfigurationComponentGroup
-  {:component-ids                (ds/const {:router  [:http :router]
+  {:component-ids                (ds/const {:router  [:middleware :router]
                                             :handler [:http :handler]})
    :default-request-content-type :transit-json})
 
@@ -37,7 +37,7 @@
   "Bind dynamic system var to a test system."
   [config & body]
   `(let [[config-name# custom-config#] ~config
-         conf# (-> (ds/config config-name#)
+         conf# (-> (ds/named-system config-name#)
                    (update-in [::ds/defs ::config]
                               #(mm/meta-merge ConfigurationComponentGroup %)))]
      (binding [*system* (ds/start conf# custom-config#)]

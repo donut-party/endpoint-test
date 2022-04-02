@@ -4,7 +4,7 @@
             [donut.system :as ds]
             [reitit.core :as rc]))
 
-(defmethod ds/config ::test
+(defmethod ds/named-system ::test
   [_]
   {::ds/defs
    {:http {:thing "thing"}}})
@@ -134,7 +134,7 @@
   (is (thrown? java.lang.IllegalArgumentException
                (deth/content-type-request :get "/" :unsupported))))
 
-(defmethod ds/config ::req-test
+(defmethod ds/named-system ::req-test
   [_]
   {::ds/defs
    {:http {:handler identity
