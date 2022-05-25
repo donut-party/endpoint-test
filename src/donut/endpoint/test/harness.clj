@@ -9,7 +9,6 @@
    [com.rpl.specter :as specter]
    [donut.system :as ds]
    [malli.core :as m]
-   [meta-merge.core :as mm]
    [muuntaja.core :as mu]
    [reitit.core :as rc]
    [ring.mock.request :as mock]
@@ -18,8 +17,8 @@
 (def ^:dynamic *system* nil)
 
 (def ConfigurationComponentGroup
-  {:component-ids                (ds/const {:router  [:middleware :router]
-                                            :handler [:http :handler]})
+  {:component-ids                {:router  [:middleware :router]
+                                  :handler [:http :handler]}
    :default-request-content-type :transit-json})
 
 ;; -------------------------
@@ -35,12 +34,11 @@
 
 (defmacro with-system
   "Bind dynamic system var to a test system."
-  [config & body]
-  `(let [[config-name# custom-config#] ~config
-         conf# (-> (ds/named-system config-name#)
+  [{:keys [system-name custom-config]} & body]
+  `(let [conf# (-> (ds/named-system ~system-name)
                    (update-in [::ds/defs ::config]
-                              #(mm/meta-merge ConfigurationComponentGroup %)))]
-     (binding [*system* (ds/start conf# custom-config#)]
+                              #(or % ConfigurationComponentGroup)))]
+     (binding [*system* (ds/start conf# ~custom-config)]
        (let [return# (do ~@body)]
          (ds/stop *system*)
          return#))))
