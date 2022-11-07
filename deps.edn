@@ -1,10 +1,10 @@
 {:paths ["src"]
- :deps  {party.donut/system  {:mvn/version "0.0.167"}
-         com.rpl/specter     {:mvn/version "1.1.4"}
-         org.clojure/clojure {:mvn/version "1.10.3"}
+ :deps  {com.rpl/specter     {:mvn/version "1.1.4"}
          metosin/malli       {:mvn/version "0.8.0"}
          metosin/muuntaja    {:mvn/version "0.6.8"}
          metosin/reitit-core {:mvn/version "0.5.15"}
+         org.clojure/clojure {:mvn/version "1.10.3"}
+         party.donut/system  {:mvn/version "0.0.167"}
          ring/ring-codec     {:mvn/version "1.2.0"}
          ring/ring-mock      {:mvn/version "0.4.0"}}
 
