@@ -39,15 +39,16 @@
                    (update-in [::ds/defs ::config]
                               #(or % ConfigurationComponentGroup)))]
      (binding [*system* (ds/start conf# ~custom-config)]
-       (let [return# (do ~@body)]
-         (ds/stop *system*)
-         return#))))
+       (try ~@body
+            (finally (ds/stop *system*))))))
 
 (defn system-fixture
   "To be used with `use-fixtures`"
-  [config]
+  [{:keys [system-name custom-config]}]
   (fn [f]
-    (with-system config (f))))
+    (with-system {:system-name   system-name
+                  :custom-config custom-config}
+      (f))))
 
 (defn instance
   "Look up component instance in current test system"
