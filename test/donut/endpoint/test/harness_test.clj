@@ -138,9 +138,9 @@
 (defmethod ds/named-system ::req-test
   [_]
   {::ds/defs
-   {:http       {:handler identity}
-    :middleware {:router (rc/router [["/api/test" ::test]
-                                     ["/api/test/:id" ::test-id]])}}})
+   {:http    {:handler identity}
+    :routing {:router (rc/router [["/api/test" ::test]
+                                  ["/api/test/:id" ::test-id]])}}})
 
 (deftest path-test
   (deth/with-system {:system-name ::req-test}

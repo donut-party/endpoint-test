@@ -6,7 +6,6 @@
   * `read-body` multimethod for parsing response bodies of different types (transit, json etc)
   * assertions that work with response segments"
   (:require
-   [com.rpl.specter :as specter]
    [donut.system :as ds]
    [malli.core :as m]
    [muuntaja.core :as mu]
@@ -16,10 +15,12 @@
 
 (def ^:dynamic *system* nil)
 
-(def ConfigurationComponentGroup
-  {:component-ids                {:router  [:middleware :router]
-                                  :handler [:http :handler]}
-   :default-request-content-type :transit-json})
+(def DefaultRegistry
+  {:donut/endpoint-router  [:routing :router]
+   :donut/http-handler [:http :handler]})
+
+(def DefaultConfig
+  {:default-request-content-type :transit-json})
 
 ;; -------------------------
 ;; system wrapper helpers
@@ -29,15 +30,16 @@
   "more assertive system retrieval"
   []
   (when-not *system*
-    (throw (ex-info "donut.endpoint.test.harness/*system* is nil but should be a system. Try adding (use-fixtures :each (system-fixture :test-system-name)) to your test namespace." {})))
+    (throw (ex-info "donut.endpoint.test.harness/*system* is nil but should be a system.
+Try adding (use-fixtures :each (system-fixture :test-system-name)) to your test namespace." {})))
   *system*)
 
 (defmacro with-system
   "Bind dynamic system var to a test system."
   [{:keys [system-name custom-config]} & body]
   `(let [conf# (-> (ds/named-system ~system-name)
-                   (update-in [::ds/defs ::config]
-                              #(or % ConfigurationComponentGroup)))]
+                   (update-in [::ds/registry] #(merge DefaultRegistry %))
+                   (update-in [::ds/defs ::config] #(merge DefaultConfig %)))]
      (binding [*system* (ds/start conf# ~custom-config)]
        (try ~@body
             (finally (ds/stop *system*))))))
@@ -52,31 +54,16 @@
 
 (defn instance
   "Look up component instance in current test system"
-  [component-id & [err-msg]]
-  (or (get-in (system) (into [::ds/instances] component-id))
-      (throw (ex-info (or err-msg (str "Could not find component " component-id))
-                      {:component-id component-id}))))
-
-(defn configured-instance
-  "Look up a component instance that has path configured by the `::config`
-  component group"
-  [human-name component-config-id]
-  (let [component-id (instance [::config :component-ids component-config-id]
-                               (str "There is no configured component id for "
-                                    component-config-id ". See TODO on configuring the donut test harness."))]
-    (instance component-id
-              (format (str "No %s for *system* at %s. "
-                           "See TODO on configuring the donut test harness to find your %s.")
-                      human-name
-                      component-id
-                      human-name))))
+  [component-id]
+  (ds/registry-instance (system) component-id))
 
 (defn configured-value
   "Look up a component instance that has path configured by the `::config`
   component group"
   [config-key]
-  (instance [::config config-key]
-            (str "There is no config value for " config-key)))
+  (or (get-in (system) [::ds/instances ::config config-key])
+      (throw (ex-info "Missing test configuration value"
+                      {:system-path [::ds/defs ::config config-key]}))))
 
 ;; ---
 ;; paths
@@ -85,7 +72,7 @@
 (defn router
   "The endpoint router."
   []
-  (configured-instance "router" :router))
+  (instance :donut/endpoint-router))
 
 (defn route-path
   ([route-name]
@@ -123,7 +110,7 @@
 (defn handler
   "The endpoint handler."
   []
-  (configured-instance "handler" :handler))
+  (instance :donut/http-handler))
 
 (defn headers
   "Add all headers to request"
@@ -232,12 +219,13 @@
     (case response-data-type
       :entity   [resp-data]
       :entities resp-data
-      :segments (specter/select [specter/ALL
-                                 #(= (first %) :entities)
-                                 1
-                                 2
-                                 specter/ALL]
-                                resp-data))))
+      :segments (into []
+                      (comp (filter #(= (first %) :entities))
+                            (map second)
+                            (map #(drop 2 %))
+                            cat
+                            cat)
+                      resp-data))))
 
 (defn prep-comparison
   "When testing whether a response contains `test-ent-attrs`, we modify
