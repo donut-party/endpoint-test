@@ -13,14 +13,13 @@
    [ring.mock.request :as mock]
    [ring.util.codec :as ring-codec]))
 
-(def ^:dynamic *system* nil)
-
-(def DefaultRegistry
-  {:donut/endpoint-router  [:routing :router]
-   :donut/http-handler [:http :handler]})
-
-(def DefaultConfig
-  {:default-request-content-type :transit-json})
+(defn add-plugin
+  [system]
+  (ds/update-many
+   system
+   {[::ds/registry :donut/endpoint-router]             #(or % [:routing :router])
+    [::ds/registry :donut/http-handler]                #(or % [:http :handler])
+    [::ds/defs ::config :default-request-content-type] #(or % :transit-json)}))
 
 ;; -------------------------
 ;; system wrapper helpers
@@ -29,33 +28,10 @@
 (defn system
   "more assertive system retrieval"
   []
-  (when-not *system*
-    (throw (ex-info "donut.endpoint.test.harness/*system* is nil but should be a system.
-Try adding (use-fixtures :each (system-fixture :test-system-name)) to your test namespace." {})))
-  *system*)
-
-(defmacro with-system
-  "Bind dynamic system var to a test system."
-  [{:keys [system-name custom-config]} & body]
-  `(let [conf# (-> (ds/named-system ~system-name)
-                   (update-in [::ds/registry] #(merge DefaultRegistry %))
-                   (update-in [::ds/defs ::config] #(merge DefaultConfig %)))]
-     (binding [*system* (ds/start conf# ~custom-config)]
-       (try ~@body
-            (finally (ds/stop *system*))))))
-
-(defn system-fixture
-  "To be used with `use-fixtures`"
-  [{:keys [system-name custom-config]}]
-  (fn [f]
-    (with-system {:system-name   system-name
-                  :custom-config custom-config}
-      (f))))
-
-(defn instance
-  "Look up component instance in current test system"
-  [component-id]
-  (ds/registry-instance (system) component-id))
+  (when-not ds/*system*
+    (throw (ex-info "donut.system/*system* is nil but should be a system.
+Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your test namespace." {})))
+  ds/*system*)
 
 (defn configured-value
   "Look up a component instance that has path configured by the `::config`
@@ -72,7 +48,7 @@ Try adding (use-fixtures :each (system-fixture :test-system-name)) to your test 
 (defn router
   "The endpoint router."
   []
-  (instance :donut/endpoint-router))
+  (ds/registry-instance (system) :donut/endpoint-router))
 
 (defn route-path
   ([route-name]
@@ -102,7 +78,6 @@ Try adding (use-fixtures :each (system-fixture :test-system-name)) to your test 
   clojure.lang.Keyword
   (path [this] (route-path this)))
 
-
 ;; -------------------------
 ;; compose and dispatch requests
 ;; -------------------------
@@ -110,7 +85,7 @@ Try adding (use-fixtures :each (system-fixture :test-system-name)) to your test 
 (defn handler
   "The endpoint handler."
   []
-  (instance :donut/http-handler))
+  (ds/registry-instance (system) :donut/http-handler))
 
 (defn headers
   "Add all headers to request"

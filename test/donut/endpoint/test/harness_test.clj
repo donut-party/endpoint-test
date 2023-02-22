@@ -6,22 +6,22 @@
 
 (defmethod ds/named-system ::test
   [_]
-  {::ds/defs
-   {:http {:thing "thing"}}})
+  (deth/add-plugin
+   {::ds/defs {:http {:thing "thing"}}}))
 
 (deftest with-system-test
   (testing "no custom config"
     (is (= {:http {:thing "thing"}}
-           (deth/with-system {:system-name ::test}
-             (-> deth/*system*
+           (ds/with-*system* ::test
+             (-> ds/*system*
                  ::ds/instances
                  (dissoc ::deth/config))))))
 
   (testing "custom config"
     (is (= {:http {:thing "custom thing"}}
-           (deth/with-system {:system-name   ::test
-                              :custom-config {[:http :thing] "custom thing"}}
-             (-> deth/*system*
+           (ds/with-*system*
+             (ds/system ::test {[:http :thing] "custom thing"})
+             (-> ds/*system*
                  ::ds/instances
                  (dissoc ::deth/config)))))))
 
@@ -137,20 +137,21 @@
 
 (defmethod ds/named-system ::req-test
   [_]
-  {::ds/defs
-   {:http    {:handler identity}
-    :routing {:router (rc/router [["/api/test" ::test]
-                                  ["/api/test/:id" ::test-id]])}}})
+  (deth/add-plugin
+   {::ds/defs
+    {:http    {:handler identity}
+     :routing {:router (rc/router [["/api/test" ::test]
+                                   ["/api/test/:id" ::test-id]])}}}))
 
 (deftest path-test
-  (deth/with-system {:system-name ::req-test}
+  (ds/with-*system* ::req-test
     (is (= "/foo"        (deth/path "/foo")))
     (is (= "/api/test"   (deth/path ::test)))
     (is (= "/api/test/1" (deth/path [::test-id {:id 1}])))
     (is (= "/api/test/1?foo=bar+baz" (deth/path [::test-id {:id 1} {:foo "bar baz"}])))))
 
 (deftest handle-request-test
-  (deth/with-system {:system-name ::req-test}
+  (ds/with-*system* ::req-test
     (is (= {:protocol       "HTTP/1.1"
             :remote-addr    "127.0.0.1"
             :headers        {"host"         "localhost"
