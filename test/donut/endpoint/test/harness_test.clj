@@ -6,8 +6,8 @@
 
 (defmethod ds/named-system ::test
   [_]
-  (deth/add-plugin
-   {::ds/defs {:http {:thing "thing"}}}))
+  {::ds/defs {:http {:thing "thing"}}
+   ::ds/plugins [deth/test-harness-plugin]})
 
 (deftest with-system-test
   (testing "no custom config"
@@ -137,11 +137,13 @@
 
 (defmethod ds/named-system ::req-test
   [_]
-  (deth/add-plugin
-   {::ds/defs
-    {:http    {:handler identity}
-     :routing {:router (rc/router [["/api/test" ::test]
-                                   ["/api/test/:id" ::test-id]])}}}))
+  {::ds/defs
+   {:http    {:handler identity}
+    :routing {:router (rc/router [["/api/test" ::test]
+                                  ["/api/test/:id" ::test-id]])}}
+
+   ::ds/plugins
+   [deth/test-harness-plugin]})
 
 (deftest path-test
   (ds/with-*system* ::req-test

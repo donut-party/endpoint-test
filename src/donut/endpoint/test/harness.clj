@@ -13,13 +13,18 @@
    [ring.mock.request :as mock]
    [ring.util.codec :as ring-codec]))
 
-(defn add-plugin
-  [system]
-  (ds/update-many
-   system
-   {[::ds/registry :donut/endpoint-router]             #(or % [:routing :router])
-    [::ds/registry :donut/http-handler]                #(or % [:http :handler])
-    [::ds/defs ::config :default-request-content-type] #(or % :transit-json)}))
+(def test-harness-plugin
+  {:donut.system.plugin/name
+   ::test-harness-plgun
+
+   :donut.system.plugin/doc
+   "Configures system so that donut.endpoint.test.harness can find the
+   components needed to construct and dispatch requests."
+
+   :donut.system.plugin/system-defaults
+   {::ds/registry {:donut/endpoint-router [:routing :router]
+                   :donut/http-handler    [:http :handler]}
+    ::ds/defs     {::config {:default-request-content-type :transit-json}}}})
 
 ;; -------------------------
 ;; system wrapper helpers
