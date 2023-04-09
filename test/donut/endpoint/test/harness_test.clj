@@ -1,8 +1,9 @@
 (ns donut.endpoint.test.harness-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [donut.endpoint.test.harness :as deth]
-            [donut.system :as ds]
-            [reitit.core :as rc]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [donut.endpoint.test.harness :as deth]
+   [donut.system :as ds]
+   [reitit.core :as rc]))
 
 (defmethod ds/named-system ::test
   [_]
@@ -31,13 +32,19 @@
           :remote-addr    "127.0.0.1"
           :protocol       "HTTP/1.1"
           :uri            "/"
-          :query-string   ""
           :scheme         :http
           :request-method :get
           :headers        {"host" "localhost"}}
-         (deth/content-type-request :get "/" :html)))
+         (deth/content-type-request
+          {:method       :get
+           :path         "/"
+           :content-type :html})))
 
-  (let [req (deth/content-type-request :post "/" {:x "y"} :html)]
+  (let [req (deth/content-type-request
+             {:method       :post
+              :path         "/"
+              :body-params  {:x "y"}
+              :content-type :html})]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"           "localhost"
@@ -55,7 +62,10 @@
     (is (= "x=y" (deth/read-body req)))))
 
 (deftest content-type-request-json
-  (let [req (deth/content-type-request :get "/" :json)]
+  (let [req (deth/content-type-request
+             {:method       :get
+              :path         "/"
+              :content-type :json})]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"
@@ -67,10 +77,13 @@
             :scheme         :http
             :request-method :get}
            (dissoc req :body)))
-    (is (= {}
-           (deth/read-body req))))
+    (is (nil? (deth/read-body req))))
 
-  (let [req (deth/content-type-request :post "/" {:x :y} :json)]
+  (let [req (deth/content-type-request
+             {:method       :post
+              :path         "/"
+              :body-params  {:x :y}
+              :content-type :json})]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"
@@ -86,7 +99,10 @@
            (deth/read-body req)))))
 
 (deftest content-type-request-transit-json
-  (let [req (deth/content-type-request :get "/" :transit-json)]
+  (let [req (deth/content-type-request
+             {:method       :get
+              :path         "/"
+              :content-type :transit-json})]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"
@@ -98,10 +114,13 @@
             :scheme         :http
             :request-method :get}
            (dissoc req :body)))
-    (is (= {}
-           (deth/read-body req))))
+    (is (nil? (deth/read-body req))))
 
-  (let [req (deth/content-type-request :post "/" {:x :y} :transit-json)]
+  (let [req (deth/content-type-request
+             {:method       :post
+              :path         "/"
+              :body-params  {:x :y}
+              :content-type :transit-json})]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"
@@ -116,7 +135,11 @@
     (is (= {:x :y}
            (deth/read-body req))))
 
-  (let [req (deth/content-type-request :post "/" {:x :y} :transit-json)]
+  (let [req (deth/content-type-request
+             {:method       :post
+              :path         "/"
+              :body-params  {:x :y}
+              :content-type :transit-json})]
     (is (= {:remote-addr    "127.0.0.1"
             :protocol       "HTTP/1.1"
             :headers        {"host"         "localhost"

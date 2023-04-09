@@ -13,6 +13,24 @@
    [ring.mock.request :as mock]
    [ring.util.codec :as ring-codec]))
 
+(def Method
+  [:method #{:get :head :post :put :delete :connect :options :trace :patch}])
+
+(def RouteIdentifier)
+
+(def BaseRequest
+  [:map
+   [:method [:enum :get :head :post :put :delete :connect :options :trace :patch]]
+   [:body-params {:optional true} map?]
+   [:query-params {:optional true} map?]
+   [:content-type {:optional true} keyword?]])
+
+(def Request
+  [:or
+   (into BaseRequest [[:route-name  keyword?]
+                      [:route-params {:optional true} map?]])
+   (into BaseRequest [[:path string?]])])
+
 (def test-harness-plugin
   {:donut.system.plugin/name
    ::test-harness-plgun
@@ -98,60 +116,46 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
   (reduce-kv mock/header req headers))
 
 
-(defmulti content-type-request*
-  (fn [_method _url _params content-type]
+(defmulti content-type-request
+  (fn [{:keys [content-type]}]
     content-type))
 
-(defmethod content-type-request* :transit-json
-  [method url params _]
-  (-> (mock/request method url)
+(defmethod content-type-request :transit-json
+  [{:keys [method path body-params]}]
+  (-> (mock/request method path)
       (headers {:content-type "application/transit+json"
                 :accept       "application/transit+json"})
-      (assoc :body (mu/encode "application/transit+json" params))))
+      (assoc :body (mu/encode "application/transit+json" body-params))))
 
-(defmethod content-type-request* :json
-  [method url params _]
-  (-> (mock/request method url)
+(defmethod content-type-request :json
+  [{:keys [method path body-params]}]
+  (-> (mock/request method path)
       (headers {:content-type "application/json"
                 :accept       "application/json"})
-      (assoc :body (mu/encode "application/json" params))))
+      (assoc :body (mu/encode "application/json" body-params))))
 
-(defmethod content-type-request* :html
-  [method url params _]
-  (mock/request method url params))
-
-(defn content-type-request
-  ([method path-or-route-name content-type]
-   (content-type-request method path-or-route-name {} content-type))
-  ([method path-or-route-name params content-type]
-   (content-type-request* method
-                          (path path-or-route-name)
-                          params
-                          content-type)))
+(defmethod content-type-request :html
+  [{:keys [method path body-params]}]
+  (mock/request method path body-params))
 
 (defn request
-  ([method path-or-route-name]
-   (content-type-request method
-                         path-or-route-name
-                         {}
-                         (configured-value :default-request-content-type)))
-  ([method path-or-route-name params-or-content-type]
-   (if (keyword? params-or-content-type)
-     (content-type-request method
-                           path-or-route-name
-                           {}
-                           params-or-content-type)
-     (content-type-request method
-                           path-or-route-name
-                           params-or-content-type
-                           (configured-value :default-request-content-type))))
-  ([method path-or-route-name params content-type]
-   (content-type-request* method path-or-route-name params content-type)))
+  ([{:keys [route-name route-params query-params] :as req-map}]
+   (-> req-map
+       (update :content-type #(or % (configured-value :default-request-content-type)))
+       (update :path #(or % (route-path route-name route-params query-params)))
+       content-type-request))
+  ([method path-or-route-name & [route-params body-params query-params]]
+   (request (cond-> {:method method
+                     :body-params body-params
+                     :route-params route-params
+                     :query-params query-params}
+              (string? path-or-route-name)  (assoc :path path-or-route-name)
+              (keyword? path-or-route-name) (assoc :route-name path-or-route-name)))))
 
 (defn handle-request
   "Perform a request with the system's root handler"
-  [method path-or-route-name & args]
-  ((handler) (apply request method path-or-route-name args)))
+  [& args]
+  ((handler) (apply request args)))
 
 ;; -------------------------
 ;; read responses
@@ -160,7 +164,8 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 (defmulti read-body "Read body according to content type"
   (fn [{:keys [headers]}]
     (->> (or (get headers "Content-Type")
-             (get headers "content-type"))
+             (get headers "content-type")
+             "")
          (re-matches #"(.*?)(;.*)?")
          second)))
 
@@ -174,7 +179,10 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 
 (defmethod read-body :default
   [{:keys [body]}]
-  (if (string? body)
+  (if (or (map? body)
+          (vector? body)
+          (set? body)
+          (string? body))
     body
     (slurp body)))
 
