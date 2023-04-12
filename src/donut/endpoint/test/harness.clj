@@ -33,7 +33,7 @@
 
 (def test-harness-plugin
   {:donut.system.plugin/name
-   ::test-harness-plgun
+   ::test-harness-plugin
 
    :donut.system.plugin/doc
    "Configures system so that donut.endpoint.test.harness can find the
@@ -49,7 +49,8 @@
 ;; -------------------------
 
 (defn system
-  "more assertive system retrieval"
+  "Get ds/*system* and throw when it's not set. Used by other helpers. Intention
+  is to reduce the boilerplate of system retrieval in your tests."
   []
   (when-not ds/*system*
     (throw (ex-info "donut.system/*system* is nil but should be a system.
@@ -69,11 +70,13 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 ;; ---
 
 (defn router
-  "The endpoint router."
+  "Retrieve endpoint router from ds/*system*. Relies on `:donut/endpoint-router`
+  being set in the system's `::ds/registry`"
   []
   (ds/registry-instance (system) :donut/endpoint-router))
 
 (defn route-path
+  "Construct a path like /api/v1/books/1. Can also build query string."
   ([route-name]
    (route-path route-name {} {}))
   ([route-name route-params]
@@ -87,26 +90,13 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
        (throw (ex-info "could not generate router path" {:route-name   route-name
                                                          :route-params route-params}))))))
 
-(defprotocol Path
-  (path [this]))
-
-(extend-protocol Path
-  String
-  (path [this] this)
-
-  clojure.lang.PersistentVector
-  (path [[route-name route-params query-params]]
-    (route-path route-name route-params query-params))
-
-  clojure.lang.Keyword
-  (path [this] (route-path this)))
-
 ;; -------------------------
 ;; compose and dispatch requests
 ;; -------------------------
 
 (defn handler
-  "The endpoint handler."
+  "Retrieve endpoint handler from ds/*system*. Relies on `:donut/http-handler`
+  being set in the system's `::ds/registry`"
   []
   (ds/registry-instance (system) :donut/http-handler))
 
@@ -117,6 +107,7 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 
 
 (defmulti content-type-request
+  ""
   (fn [{:keys [content-type]}]
     content-type))
 
@@ -139,10 +130,22 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
   (mock/request method path body-params))
 
 (defn request
-  ([{:keys [route-name route-params query-params] :as req-map}]
+  "Construct a ring.mock.request/request using your ds/*system* router to
+   build a path. Adds content-type and accept headers.
+
+   Single-arity version takes a map with:
+
+         :method HTTP method
+           :path string; use if you don't want to use router to build path
+     :route-name used to build path
+   :route-params map to populate your route's params,
+                 e.g. :book/id in /api/books {book/id}
+   :query-params map to add a query string
+   :body-params  the data for your request"
+  ([{:keys [path route-name route-params query-params content-type] :as req-map}]
    (-> req-map
-       (update :content-type #(or % (configured-value :default-request-content-type)))
-       (update :path #(or % (route-path route-name route-params query-params)))
+       (assoc :content-type (or content-type (configured-value :default-request-content-type))
+              :path (or path (route-path route-name route-params query-params)))
        content-type-request))
   ([method path-or-route-name & [route-params body-params query-params]]
    (request (cond-> {:method method
@@ -153,7 +156,8 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
               (keyword? path-or-route-name) (assoc :route-name path-or-route-name)))))
 
 (defn handle-request
-  "Perform a request with the system's root handler"
+  "Perform a request with the system's ring handler. Args are the same as those
+  for `request`."
   [& args]
   ((handler) (apply request args)))
 
@@ -161,7 +165,9 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 ;; read responses
 ;; -------------------------
 
-(defmulti read-body "Read body according to content type"
+(defmulti read-body
+  "Decodes a response body, transforming it from JSON or whatever back into
+  Clojure, which we love"
   (fn [{:keys [headers]}]
     (->> (or (get headers "Content-Type")
              (get headers "content-type")
@@ -239,7 +245,11 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
        (set)))
 
 (defn contains-entity?
-  "Request's response data creates entity of type `ent-type` that has
-  key/value pairs identical to `test-ent-attrs`."
+  "Request's response data has a map with key/value pairs identical to
+  `test-ent-attrs`."
   [resp-data test-ent-attrs]
   ((comparison-entities test-ent-attrs resp-data) test-ent-attrs))
+
+(def response
+  "Handles a request and reads the body. Arugments same as `request`."
+  (comp read-body handle-request))

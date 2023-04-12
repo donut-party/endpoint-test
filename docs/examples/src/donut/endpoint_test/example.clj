@@ -43,11 +43,9 @@
    [deth/test-harness-plugin]})
 
 (deftest get-books
-  (is (-> (deth/handle-request :get :books)
-          deth/read-body
+  (is (-> (deth/response :get :books)
           (deth/contains-entity? #:book{:id 0 :title "East of Eden"}))))
 
 (deftest get-book
-  (is (-> (deth/handle-request :get :book {:book/id 0})
-          deth/read-body
-          (deth/contains-entity? #:book{:id 0 :title "East of Eden"}))))
+  (is (= (deth/response :get :book {:book/id 0})
+         #:book{:id 0 :title "East of Eden"})))

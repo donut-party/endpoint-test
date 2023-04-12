@@ -1,6 +1,7 @@
 (ns donut.endpoint.test.harness-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [donut.endpoint.router :as der]
    [donut.endpoint.test.harness :as deth]
    [donut.system :as ds]
    [reitit.core :as rc]))
@@ -218,4 +219,54 @@
   (is (deth/contains-entity? [[:entities [:_ :_ [{:a :a}]]]]
                              {:a :a}))
   (is (not (deth/contains-entity? [[:entities [:_ :_ [{:a :a}]]]]
+
                                   {:a :a :b :b}))))
+;;---
+;;
+;;---
+
+
+;; donut.endpoint.test.harness is meant to work with systems defined by
+;; donut.system, and with systems
+
+(defmethod ds/named-system :with-routes
+  [_]
+  {::ds/defs
+   {:http
+    {:handler
+     (ds/ref [:routing :ring-handler])}
+
+    :routing
+    {:ring-handler der/RingHandlerComponent
+     :router       der/RouterComponent
+     :router-opts  der/router-opts
+     :routes       [;; returning multiple maps
+                    ["/api/v1/books"
+                     {:name :books
+                      :get  {:handler (fn [_]
+                                        {:status 200
+                                         :body   [#:book{:id 0 :title "East of Eden"}
+                                                  #:book{:id 1 :title "The Martian"}
+                                                  #:book{:id 2 :title "Their Eyes Were Watching God"}]})}}]
+
+                    ;; returning a single map
+                    ["/api/v1/books/{book/id}"
+                     {:name :book
+                      :get  {:handler (fn [_]
+                                        {:status 200
+                                         :body   #:book{:id 0 :title "East of Eden"}})}
+                      :put  {:handler (fn [{:keys [all-params]}]
+                                        all-params)}}]]}}
+
+   ::ds/plugins
+   [deth/test-harness-plugin]})
+
+(deftest get-books
+  (ds/with-*system* :with-routes
+    (is (-> (deth/response :get :books)
+            (deth/contains-entity? #:book{:id 0 :title "East of Eden"})))))
+
+(deftest get-book
+  (ds/with-*system* :with-routes
+    (is (= (deth/response :get :book {:book/id 0})
+           #:book{:id 0 :title "East of Eden"}))))
