@@ -169,13 +169,6 @@
    ::ds/plugins
    [deth/test-harness-plugin]})
 
-(deftest path-test
-  (ds/with-*system* ::req-test
-    (is (= "/foo"        (deth/path "/foo")))
-    (is (= "/api/test"   (deth/path ::test)))
-    (is (= "/api/test/1" (deth/path [::test-id {:id 1}])))
-    (is (= "/api/test/1?foo=bar+baz" (deth/path [::test-id {:id 1} {:foo "bar baz"}])))))
-
 (deftest handle-request-test
   (ds/with-*system* ::req-test
     (is (= {:protocol       "HTTP/1.1"

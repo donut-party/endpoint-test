@@ -1,5 +1,5 @@
 {:paths ["src"]
- :deps  {metosin/malli       {:mvn/version "0.8.0"}
+ :deps  {metosin/malli       {:mvn/version "0.10.4"}
          metosin/muuntaja    {:mvn/version "0.6.8"}
          metosin/reitit-core {:mvn/version "0.5.15"}
          org.clojure/clojure {:mvn/version "1.10.3"}

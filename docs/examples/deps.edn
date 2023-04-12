@@ -1,4 +1,3 @@
 {:paths ["src"]
  :deps  {party.donut/endpoint-test {:local/root "../../"}
-         party.donut/endpoint      {:mvn/version "0.0.23"}
-         }}
+         party.donut/endpoint      {:mvn/version "0.0.23"}}}
