@@ -1,16 +1,15 @@
+on: push
 name: clj-kondo linting
-
-on: [push]
-
 jobs:
-  self-lint:
+  lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: DeLaGuardo/clojure-lint-action@master
+    - name: Install clj-kondo
+      uses: DeLaGuardo/setup-clj-kondo@afc83dbbf4e7e32e04649e29dbf30668d30e9e3e
       with:
-        clj-kondo-args: --lint src test
-        # secrets.GITHUB_TOKEN is needed here
-        # to publish annotations back to github
-        # this action is not storing or sending it anywhere
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        version: '2022.01.15'
+
+    - uses: actions/checkout@v2
+
+    - name: Lint
+      run: clj-kondo --lint src --config '{:output {:pattern "::{{level}} file={{filename}},line={{row}},col={{col}}::{{message}}"}}'
