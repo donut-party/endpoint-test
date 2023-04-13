@@ -107,7 +107,7 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 
 
 (defmulti content-type-request
-  ""
+  "Multi method that sets headers and encodes body for a content type"
   (fn [{:keys [content-type]}]
     content-type))
 
@@ -124,6 +124,13 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
       (headers {:content-type "application/json"
                 :accept       "application/json"})
       (assoc :body (mu/encode "application/json" body-params))))
+
+(defmethod content-type-request :edn
+  [{:keys [method path body-params]}]
+  (-> (mock/request method path)
+      (headers {:content-type "application/edn"
+                :accept       "application/edn"})
+      (assoc :body (mu/encode "application/edn" body-params))))
 
 (defmethod content-type-request :html
   [{:keys [method path body-params]}]
@@ -155,11 +162,13 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
               (string? path-or-route-name)  (assoc :path path-or-route-name)
               (keyword? path-or-route-name) (assoc :route-name path-or-route-name)))))
 
+#_:clj-kondo/ignore
 (defn handle-request
-  "Perform a request with the system's ring handler. Args are the same as those
-  for `request`."
-  [& args]
-  ((handler) (apply request args)))
+  "Perform a request with the system's ring handler"
+  ([{:keys [path route-name route-params body-params query-params content-type] :as req-map}]
+   ((handler) req-map))
+  ([method path-or-route-name & [route-params body-params query-params]]
+   ((handler) (request method path-or-route-name route-params body-params query-params))))
 
 ;; -------------------------
 ;; read responses
@@ -250,6 +259,10 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
   [resp-data test-ent-attrs]
   ((comparison-entities test-ent-attrs resp-data) test-ent-attrs))
 
-(def response
-  "Handles a request and reads the body. Arugments same as `request`."
-  (comp read-body handle-request))
+#_:clj-kondo/ignore
+(defn response
+  "Comp of handle-request and read-body; handles a request and reads the body."
+  ([{:keys [path route-name route-params body-params query-params content-type] :as req-map}]
+   (read-body (handle-request req-map)))
+  ([method path-or-route-name & [route-params body-params query-params]]
+   (read-body (handle-request method path-or-route-name route-params body-params query-params))))
