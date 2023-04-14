@@ -35,7 +35,7 @@
   {:donut.system.plugin/name
    ::test-harness-plugin
 
-   :donut.system.plugin/doc
+   :donut.system/doc
    "Configures system so that donut.endpoint.test.harness can find the
    components needed to construct and dispatch requests."
 
