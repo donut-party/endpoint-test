@@ -8,24 +8,21 @@
 
 (defmethod ds/named-system ::test
   [_]
-  {::ds/defs {:http {:thing "thing"}}
+  {::ds/defs    {:http {:thing "thing"
+                        :handler "test"}
+                 :routing {:router "test"}}
    ::ds/plugins [deth/test-harness-plugin]})
 
 (deftest with-system-test
   (testing "no custom config"
-    (is (= {:http {:thing "thing"}}
+    (is (= "thing"
            (ds/with-*system* ::test
-             (-> ds/*system*
-                 ::ds/instances
-                 (dissoc ::deth/config))))))
+             (ds/instance ds/*system* [:http :thing])))))
 
   (testing "custom config"
-    (is (= {:http {:thing "custom thing"}}
-           (ds/with-*system*
-             (ds/system ::test {[:http :thing] "custom thing"})
-             (-> ds/*system*
-                 ::ds/instances
-                 (dissoc ::deth/config)))))))
+    (is (= "custom thing"
+           (ds/with-*system* (ds/system ::test {[:http :thing] "custom thing"})
+             (ds/instance ds/*system* [:http :thing]))))))
 
 (deftest content-type-request-html
   (is (= {:server-port    80
