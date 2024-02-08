@@ -40,9 +40,9 @@
    components needed to construct and dispatch requests."
 
    :donut.system.plugin/system-defaults
-   {::ds/defs {::ds/registry {:donut/endpoint-router (ds/ref [:routing :router])
-                              :donut/http-handler    (ds/ref [:http :handler])}
-               ::config      {:default-request-content-type :transit-json}}}})
+   {::ds/defs {::config {:default-request-content-type :transit-json
+                         :endpoint-router              (ds/ref [:routing :router])
+                         :http-handler                 (ds/ref [:http :handler])}}}})
 
 ;; -------------------------
 ;; system wrapper helpers
@@ -70,10 +70,10 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 ;; ---
 
 (defn router
-  "Retrieve endpoint router from ds/*system*. Relies on `:donut/endpoint-router`
-  being set in the system's `::ds/registry`"
+  "Retrieve endpoint router from ds/*system*, as referenced by `::config`
+  component group"
   []
-  (ds/instance (system) [::ds/registry :donut/endpoint-router]))
+  (ds/instance (system) [::config :endpoint-router]))
 
 (defn route-path
   "Construct a path like /api/v1/books/1. Can also build query string."
@@ -95,10 +95,10 @@ Try adding (use-fixtures :each (ds/system-fixture :test-system-name)) to your te
 ;; -------------------------
 
 (defn handler
-  "Retrieve endpoint handler from ds/*system*. Relies on `:donut/http-handler`
-  being set in the system's `::ds/registry`"
+  "Retrieve endpoint handler from ds/*system*, as referenced by `::config`
+  component group"
   []
-  (ds/instance (system) [::ds/registry :donut/http-handler]))
+  (ds/instance (system) [::config :http-handler]))
 
 (defn headers
   "Add all headers to request"
