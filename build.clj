@@ -18,7 +18,7 @@
 (def basis (b/create-basis {:project "deps.edn"}))
 
 (defn- pom-template [version]
-  [[:description "dependency injection lib / framework foundation"]
+  [[:description "it's for endpoint tests"]
    [:url "https://github.com/donut-power/endpoint-test"]
    [:licenses
     [:license
