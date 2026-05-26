@@ -9,7 +9,7 @@
 
  :aliases
  {:dev
-  {:extra-paths   ["test"]}
+  {:extra-paths ["test"]}
 
   :framework-dev
   {:override-deps {party.donut/system {:local/root "../system"}}}
@@ -21,8 +21,9 @@
 
                  party.donut/endpoint
                  {:mvn/version "0.0.23"}}
-   :exec-fn     cognitect.test-runner.api/test}
+   :exec-fn cognitect.test-runner.api/test}
 
-  :build {:deps       {io.github.seancorfield/build-clj
-                       {:git/tag "v0.6.6" :git/sha "171d5f1"}}
-          :ns-default build}}}
+  :build
+  {:deps       {io.github.clojure/tools.build {:mvn/version "0.9.6"}
+                slipset/deps-deploy           {:mvn/version "0.2.1"}}
+   :ns-default build}}}
