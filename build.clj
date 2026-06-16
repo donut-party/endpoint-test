@@ -19,7 +19,7 @@
 
 (defn- pom-template [version]
   [[:description "it's for endpoint tests"]
-   [:url "https://github.com/donut-power/endpoint-test"]
+   [:url "https://github.com/donut-party/endpoint-test"]
    [:licenses
     [:license
      [:name "MIT"]
@@ -28,9 +28,9 @@
     [:developer
      [:name "Daniel Higginbotham"]]]
    [:scm
-    [:url "https://github.com/donut-power/endpoint-test"]
-    [:connection "scm:git:https://github.com/donut-power/endpoint-test.git"]
-    [:developerConnection "scm:git:ssh:git@github.com:donut-power/endpoint-test.git"]
+    [:url "https://github.com/donut-party/endpoint-test"]
+    [:connection "scm:git:https://github.com/donut-party/endpoint-test.git"]
+    [:developerConnection "scm:git:ssh:git@github.com:donut-party/endpoint-test.git"]
     [:tag (str "v" version)]]])
 
 (defn- jar-opts [opts]
@@ -58,3 +58,9 @@
     (dd/deploy {:installer :remote :artifact (b/resolve-path jar-file)
                 :pom-file (b/pom-path (select-keys opts [:lib :class-dir]))}))
   opts)
+
+(defn install [opts]
+  (let [opts (jar-opts opts)]
+    (jar opts)
+    (b/install opts)
+    (println version)))
